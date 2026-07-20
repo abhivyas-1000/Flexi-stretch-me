@@ -48,6 +48,40 @@ function formatTime(s) {
   return `${m}:${sec}`;
 }
 
+function playBeep() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    // Gentle pentatonic phrase, repeated to fill ~30 seconds
+    const notes = [659.25, 783.99, 880.0, 783.99, 659.25, 523.25]; // E5 G5 A5 G5 E5 C5
+    const noteDuration = 0.5;
+    const gap = 0.15;
+    const phraseDuration = notes.length * (noteDuration + gap);
+    const totalDuration = 30;
+    const repeats = Math.ceil(totalDuration / phraseDuration);
+
+    for (let r = 0; r < repeats; r++) {
+      notes.forEach((freq, i) => {
+        const startTime = ctx.currentTime + r * phraseDuration + i * (noteDuration + gap);
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gainNode.gain.setValueAtTime(0.0001, startTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.18, startTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + noteDuration);
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + noteDuration + 0.05);
+      });
+    }
+    setTimeout(() => ctx.close(), (totalDuration + 1) * 1000);
+  } catch (e) {
+    // audio not available, fail silently
+  }
+}
+
 function loadStats() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -93,7 +127,7 @@ export default function App() {
     if (running) {
       timerRef.current = setInterval(() => {
         setRemaining((r) => {
-          if (r <= 1) { setReminderFired(true); setRunning(false); return 0; }
+          if (r <= 1) { setReminderFired(true); setRunning(false); playBeep(); return 0; }
           return r - 1;
         });
       }, 1000);
@@ -311,4 +345,4 @@ export default function App() {
       </div>
     </div>
   );
-}
+     }
